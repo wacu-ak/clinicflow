@@ -1,32 +1,89 @@
+import { useState, useEffect } from "react";
+import { db } from "./firebase";
+import {
+  collection,
+  addDoc,
+  getDocs,
+  serverTimestamp
+} from "firebase/firestore";
 
-import { useState } from "react";
 import "./App.css";
+
 
 function App() {
   const [patients, setPatients] = useState([]);
-
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [reason, setReason] = useState("");
 
-  function registerPatient(e) {
-    e.preventDefault();
 
-    const newPatient = {
-      id: Date.now(),
-      name: name,
-      phone: phone,
-      reason: reason,
-      status: "Waiting",
-    };
+useEffect(() => {
+  async function fetchPatients() {
+    try {
+      const snapshot = await getDocs(
+        collection(db, "patients")
+      );
 
-    setPatients([...patients, newPatient]);
+      const savedPatients = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+
+      setPatients(savedPatients);
+
+    } catch (error) {
+      console.error("Error fetching patients:", error);
+    }
+  }
+
+  fetchPatients();
+}, []);
+
+
+async function registerPatient(e) {
+  e.preventDefault();
+
+  const newPatient = {
+    name: name,
+    phone: phone,
+    reason: reason,
+    status: "Waiting",
+    createdAt: serverTimestamp()
+  };
+
+  try {
+    const docRef = await addDoc(
+      collection(db, "patients"),
+      newPatient
+    );
+
+    setPatients((previousPatients) => [
+      ...previousPatients,
+      {
+        ...newPatient,
+        id: docRef.id
+      }
+    ]);
 
     setName("");
     setPhone("");
     setReason("");
+
+    alert("Patient registered successfully!");
+
+  } catch (error) {
+    console.error("Firebase error:", error);
+    alert("Patient registration failed: " + error.message);
   }
 
+
+
+  setPatients([...patients, newPatient]);
+
+  setName("");
+  setPhone("");
+  setReason("");
+}
   function updatePatient(id) {
     const updatedPatients = patients.map((patient) => {
       if (patient.id === id) {
