@@ -2,10 +2,12 @@ import { useState, useEffect } from "react";
 import { db, auth } from "./firebase";
 
 import {
-  GoogleAuthProvider,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
   signInWithPopup,
-  onAuthStateChanged,
-  signOut
+  GoogleAuthProvider,
+  signOut,
+  onAuthStateChanged
 } from "firebase/auth";
 
 import {
@@ -17,8 +19,33 @@ import {
 
 import "./App.css";
 
+const googleProvider = new GoogleAuthProvider();
+
+
 
 function App() {
+  const [user, setUser] = useState(null);
+  useEffect(() => {
+  const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+    setUser(currentUser);
+  });
+
+  return () => unsubscribe();
+}, []);
+
+const handleGoogleSignIn = async () => {
+  try {
+    const result = await signInWithPopup(auth, googleProvider);
+
+    setUser(result.user);
+
+    alert(`Welcome to ClinicFlow, ${result.user.displayName}!`);
+  } catch (error) {
+    console.error("Google Sign-In Error:", error);
+    alert("Google sign-in failed: " + error.message);
+  }
+};
+
   const [patients, setPatients] = useState([]);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
@@ -56,6 +83,7 @@ async function registerPatient(e) {
     phone: phone,
     reason: reason,
     status: "Waiting",
+    queueNumber: Date.now(),
     createdAt: serverTimestamp()
   };
 
@@ -103,6 +131,29 @@ async function registerPatient(e) {
 
     setPatients(updatedPatients);
   }
+if (!user) {
+  return (
+    <div className="auth-container">
+      <h1>ClinicFlow</h1>
+      <p>Welcome to your clinic management system.</p>
+
+      <h2>Sign in to continue</h2>
+
+      <button onClick={handleGoogleSignIn}>
+        Continue with Google
+      </button>
+    </div>
+  );
+}
+
+const handleLogout = async () => {
+  try {
+    await signOut(auth);
+    setUser(null);
+  } catch (error) {
+    console.error("Logout failed:", error);
+  }
+};
 
   return (
     <div className="app-shell">
@@ -122,9 +173,13 @@ async function registerPatient(e) {
       <main className="main-content">
 
         <header className="topbar">
-          <h1>Reception Dashboard</h1>
-          <p>Welcome back!</p>
-        </header>
+  <h1>Reception Dashboard</h1>
+  <p>Welcome back!</p>
+
+  <button onClick={handleLogout}>
+    Logout
+  </button>
+</header>
 
         <section className="welcome">
           <div>
@@ -194,6 +249,7 @@ async function registerPatient(e) {
                 <th>Reason</th>
                 <th>Status</th>
                 <th>Action</th>
+                <th>Queue No.</th>
               </tr>
             </thead>
 
@@ -213,6 +269,7 @@ async function registerPatient(e) {
                     <td>{patient.phone}</td>
                     <td>{patient.reason}</td>
                     <td>{patient.status}</td>
+                    <td>{patient.queueNumber}</td>
 
                     <td>
                       {patient.status === "Waiting" && (
